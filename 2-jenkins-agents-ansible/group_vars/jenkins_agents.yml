@@ -1,0 +1,2 @@
+jenkins_url: "http://jenkins-controller:8080"
+jenkins_agent_home: /home/jenkins/agent

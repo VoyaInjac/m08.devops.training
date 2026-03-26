@@ -1,0 +1,54 @@
+pipeline {
+    agent any
+
+    environment {
+        BUILD_VERSION = "${env.BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Show Environment') {
+            steps {
+                echo "Build Number: ${env.BUILD_NUMBER}"
+                echo "Job Name: ${env.JOB_NAME}"
+                echo "Workspace: ${env.WORKSPACE}"
+                echo "Build URL: ${env.BUILD_URL}"
+            }
+        }
+
+        stage('Create Workspace Files') {
+            steps {
+                sh '''
+                    echo "Build ${BUILD_VERSION}" > build.info
+                    echo "Created at $(date)" >> build.info
+                    mkdir -p output
+                    echo "Artifact 1 content" > output/artifact1.txt
+                    echo "Artifact 2 content" > output/artifact2.txt
+                '''
+            }
+        }
+
+        stage('List Workspace') {
+            steps {
+                sh '''
+                    echo "=== Workspace contents ==="
+                    ls -la
+                    echo "=== output directory ==="
+                    ls -la output/
+                '''
+            }
+        }
+
+        stage('Archive Artifacts') {
+            steps {
+                archiveArtifacts artifacts: 'build.info,output/*.txt', fingerprint: true
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Workspace path: ${env.WORKSPACE}"
+            echo "Build completed: ${currentBuild.result}"
+        }
+    }
+}

@@ -1,0 +1,39 @@
+pipeline {
+    agent none
+
+    stages {
+        stage('Build on Agent') {
+            agent { label 'agent' }
+            steps {
+                echo "Running on agent: ${env.NODE_NAME}"
+                sh 'hostname && whoami'
+            }
+        }
+
+        stage('Parallel Jobs') {
+            parallel {
+                stage('Agent 1') {
+                    agent { label 'agent-01' }
+                    steps {
+                        echo "Running on agent-01: ${env.NODE_NAME}"
+                        sh 'echo "Job A on agent-01"'
+                    }
+                }
+                stage('Agent 2') {
+                    agent { label 'agent-02' }
+                    steps {
+                        echo "Running on agent-02: ${env.NODE_NAME}"
+                        sh 'echo "Job B on agent-02"'
+                    }
+                }
+            }
+        }
+
+        stage('Collect Results') {
+            agent any
+            steps {
+                echo "Back on master/any agent: ${env.NODE_NAME}"
+            }
+        }
+    }
+}

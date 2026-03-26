@@ -1,0 +1,12 @@
+services:
+  jenkins:
+    image: # image name to use
+    ports:
+      # add exposed ports
+    volumes:
+      # complete with the volume
+
+# this can be left untouched
+volumes:
+  jenkins_home:
+

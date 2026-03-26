@@ -1,0 +1,113 @@
+---
+- name: Setup Jenkins agent and connect to controller
+  hosts: all
+  become: true
+  gather_facts: no
+
+  vars:
+    jenkins_url: "http://jenkins-controller:8080"
+    jenkins_agent_name: "{{ inventory_hostname }}"
+    jenkins_agent_home: /home/jenkins/agent
+    jenkins_agent_jar: "{{ jenkins_agent_home }}/agent.jar"
+    jenkins_agent_pidfile: "{{ jenkins_agent_home }}/agent.pid"
+
+  tasks:
+    - name: Install python3, sudo, and dependencies (raw bootstrap)
+      ansible.builtin.raw: apt-get update && apt-get install -y python3 python3-pip sudo
+      changed_when: false
+
+    - name: Gather facts after Python install
+      ansible.builtin.setup:
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install Java and curl
+      ansible.builtin.apt:
+        name:
+          - openjdk-17-jre-headless
+          - curl
+        state: present
+
+    - name: Add user 'jenkins'
+      ansible.builtin.user:
+        name: jenkins
+        shell: /bin/bash
+        home: /home/jenkins
+        createhome: yes
+        groups: sudo
+        append: yes
+
+    - name: Ensure sudoers.d directory exists
+      ansible.builtin.file:
+        path: /etc/sudoers.d
+        state: directory
+        mode: '0750'
+        owner: root
+        group: root
+
+    - name: Allow 'jenkins' passwordless sudo
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/jenkins
+        content: |
+          jenkins ALL=(ALL) NOPASSWD: ALL
+        owner: root
+        group: root
+        mode: '0440'
+        validate: /usr/sbin/visudo -cf %s
+
+    - name: Create Jenkins agent home
+      ansible.builtin.file:
+        path: "{{ jenkins_agent_home }}"
+        state: directory
+        owner: jenkins
+        group: jenkins
+        mode: '0755'
+
+    - name: Download agent.jar
+      become_user: jenkins
+      ansible.builtin.get_url:
+        url: "{{ jenkins_url }}/jnlpJars/agent.jar"
+        dest: "{{ jenkins_agent_jar }}"
+        mode: '0644'
+
+    - name: Create Jenkins agent launch script
+      ansible.builtin.copy:
+        dest: "{{ jenkins_agent_home }}/run-jenkins-agent.sh"
+        owner: jenkins
+        group: jenkins
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          set -e
+          exec /usr/bin/java -jar "{{ jenkins_agent_jar }}" \
+            -url "{{ jenkins_url }}/" \
+            -secret "{{ jenkins_agent_secret }}" \
+            -name "{{ jenkins_agent_name }}" \
+            -webSocket \
+            -workDir "/tmp"
+
+    - name: Check if Jenkins agent is already running
+      become_user: jenkins
+      ansible.builtin.shell: |
+        if [ -f "{{ jenkins_agent_pidfile }}" ] && kill -0 "$(cat "{{ jenkins_agent_pidfile }}")" 2>/dev/null; then
+          echo running
+        else
+          echo stopped
+        fi
+      register: agent_state
+      changed_when: false
+
+    - name: Start Jenkins agent
+      become_user: jenkins
+      ansible.builtin.shell: |
+        nohup "{{ jenkins_agent_home }}/run-jenkins-agent.sh" > "{{ jenkins_agent_home }}/agent.log" 2>&1 &
+        echo $! > "{{ jenkins_agent_pidfile }}"
+      args:
+        chdir: "{{ jenkins_agent_home }}"
+      when: agent_state.stdout != "running"
+      async: 3600
+      poll: 0
+      changed_when: true
+
