@@ -1,0 +1,42 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins-controller
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+
+  agent-01:
+    image: ubuntu:22.04
+    container_name: agent-01
+    hostname: agent-01
+    command: sleep infinity
+
+  agent-02:
+    image: ubuntu:22.04
+    container_name: agent-02
+    hostname: agent-02
+    command: sleep infinity
+
+  agent-03:
+    image: ubuntu:22.04
+    container_name: agent-03
+    hostname: agent-03
+    command: sleep infinity
+
+  agent-04:
+    image: ubuntu:22.04
+    container_name: agent-04
+    hostname: agent-04
+    command: sleep infinity
+
+  agent-05:
+    image: ubuntu:22.04
+    container_name: agent-05
+    hostname: agent-05
+    command: sleep infinity
+
+volumes:
+  jenkins_home:
